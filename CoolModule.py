@@ -4,7 +4,9 @@ import logging
 import threading
 
 class tasker():
-    def __init__(self,dbname,user,password,host,port,periodicity=3,threaded=False):
+
+    
+    def __init__(self, dbname, user, password, host, port, periodicity=3, threaded=False):
         self.periodicity = periodicity
         self.dbname = dbname
         self.user = user
@@ -14,6 +16,7 @@ class tasker():
         self.tasking = False
         self.threaded=threaded
         self._thread = None
+
 
     def init(self):
         with psycopg2.connect(dbname=self.dbname,host=self.host,password = self.password,port=self.port,user=self.user) as conn:
@@ -33,11 +36,10 @@ class tasker():
     def createTask(self,data):
         with psycopg2.connect(dbname=self.dbname,host=self.host,password = self.password,port=self.port,user=self.user) as conn:
             cursor = conn.cursor()
-            cursor.execute('insert into task (status,adress,theme,message) values ({},{},{},{}) on conflict do nothing'.format(*data.split('/')))
-    
+            cursor.execute("insert into task (status,adress,theme,message) values (0,'{}','{}','{}') on conflict do nothing".format(*data.split('/')))
     
     def start(self,sourse):
-            
+        self.tasking = True
         def tasking():
             for data in sourse:
                 if self.tasking:
@@ -49,7 +51,7 @@ class tasker():
         if self.threaded:
             self._thread = threading.Thread(target=tasking,daemon=True)
             self._thread.start()
-            self._thread.join()
+            print('Startanuli')
         else:
             try:
                 while True:
@@ -73,7 +75,7 @@ class worker():
 
         self._logger = logging.getLogger("Worker")
         self._logger.setLevel(logging.INFO)
-        fh = logging.FileHandler("mail_logs.log")
+        fh = logging.FileHandler("mail_logs.log",encoding='utf-8')
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
         fh.setFormatter(formatter)
         self._logger.addHandler(fh)
@@ -98,7 +100,7 @@ class worker():
                                     returning task.id,task.adress,task.theme,task.message; ''')
                     conn.commit()
                     self.execute(cursor.fetchall())
-                    time.sleep(2)
+                    time.sleep(4)
             except KeyboardInterrupt:
                 self._logger.info('Closing...')
                 
@@ -106,7 +108,7 @@ class worker():
     def execute(self,task):
         if task:
             task = task[0]
-            self._logger.info('Send {}:{} to {};'.format(task[2],task[3],task[1]))
+            self._logger.info('Send {}:{} to {};'.format(task[2],task[1],task[3]))
             with psycopg2.connect(dbname=self.dbname,host=self.host,password = self.password,port=self.port,user=self.user) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''update task
@@ -115,7 +117,7 @@ class worker():
                                     where task.id = {} '''.format(task[0]))
 
         else:
-            print(1)
+            time.sleep(5)
 
 if __name__ == '__main__':
     tasks = tasker(dbname='TaskDB',host='localhost',password = 'passwd',port='5433',user='postgres')

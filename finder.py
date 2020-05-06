@@ -26,7 +26,8 @@ def threadingSearch(name,path):
                 if element.name == name:
                     paths.append(element.path)
             else:
-                threading.Thread(target=threadingSearch,args=(name,element.path)).start()
+                thread = threading.Thread(target=threadingSearch,args=(name,element.path))
+                thread.start()
     except PermissionError:
         pass
 
@@ -37,6 +38,7 @@ if __name__ == '__main__':
     if re.match(MATCH,args.start):
         t = threading.Thread(target=threadingSearch,args=(sys.argv[1],args.start))
         t.start()
+        t.join()
         while threading.active_count() > 1:
             time.sleep(1)
         if len(paths):
