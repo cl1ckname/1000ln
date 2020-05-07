@@ -1,11 +1,10 @@
 import sys
 import argparse
 import threading
-
 import re
 import os
 import time
-
+from random import randint
 
 MATCH = r'^.*[\\\/](.*)$' #regex to validate optional path
 paths = []
@@ -26,8 +25,11 @@ def threadingSearch(name,path):
                 if element.name == name:
                     paths.append(element.path)
             else:
-                thread = threading.Thread(target=threadingSearch,args=(name,element.path))
+                while threading.active_count() > 500:
+                    time.sleep(0.5)
+                thread = threading.Thread(target=threadingSearch,args=(name,element.path),daemon=True)
                 thread.start()
+
     except PermissionError:
         pass
 
@@ -38,11 +40,10 @@ if __name__ == '__main__':
     if re.match(MATCH,args.start):
         t = threading.Thread(target=threadingSearch,args=(sys.argv[1],args.start))
         t.start()
-        t.join()
         while threading.active_count() > 1:
-            time.sleep(1)
+            time.sleep(2)
         if len(paths):
-            print(*paths,sep = '\n')
+            print('Results:',*paths,sep = '\n')
         else:
             print('Did not match')
     else:

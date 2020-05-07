@@ -1,12 +1,22 @@
+"""Create queue of tasks with PostrgeSQL and execute it.
+
+Classes:
+
+    Pickler
+    Unpickler
+
+"""
+
 import psycopg2
 import time
 import logging
 import threading
 
-class tasker():
+class Tasker():
+    """ Class to create a queqe of tasks with text document."""
 
-    
-    def __init__(self, dbname, user, password, host, port, periodicity=3, threaded=False):
+    def __init__(self, dbname, user, password, host, port, 
+                            periodicity=3, threaded=False):
         self.periodicity = periodicity
         self.dbname = dbname
         self.user = user
@@ -14,12 +24,14 @@ class tasker():
         self.host = host
         self.port = port
         self.tasking = False
-        self.threaded=threaded
+        self.threaded = threaded
         self._thread = None
 
 
     def init(self):
-        with psycopg2.connect(dbname=self.dbname,host=self.host,password = self.password,port=self.port,user=self.user) as conn:
+        """Initialization the database to storage the tasks."""
+
+        with psycopg2.connect(dbname=self.dbname,host=self.host, password = self.password,port=self.port, user=self.user) as conn:
             cursor = conn.cursor()
             cursor.execute('''create table if not exists task
                 (
@@ -34,11 +46,13 @@ class tasker():
     
     
     def createTask(self,data):
+        """ Create task from string """
         with psycopg2.connect(dbname=self.dbname,host=self.host,password = self.password,port=self.port,user=self.user) as conn:
             cursor = conn.cursor()
             cursor.execute("insert into task (status,adress,theme,message) values (0,'{}','{}','{}') on conflict do nothing".format(*data.split('/')))
-    
+
     def start(self,sourse):
+        """ Start to create tasks automaticlly """
         self.tasking = True
         def tasking():
             for data in sourse:
@@ -51,7 +65,6 @@ class tasker():
         if self.threaded:
             self._thread = threading.Thread(target=tasking,daemon=True)
             self._thread.start()
-            print('Startanuli')
         else:
             try:
                 while True:
@@ -60,9 +73,13 @@ class tasker():
                 pass
 
     def stop(self):
+
+        """ Stop to create tasks automaticlly """
+
         self.tasking = False
 
-class worker():
+class Worker():
+    """ Class to listen database and execute tasks """
     def __init__(self,dbname,user,password,host,port,periodicity_start=5,periodicity_end=10):
         self.periodicity_start = periodicity_start
         self.periodicity_end = periodicity_end
@@ -81,10 +98,12 @@ class worker():
         self._logger.addHandler(fh)
         self._logger.info("Program started")
 
-    def listen(self):
-        with psycopg2.connect(dbname=self.dbname,host=self.host,password = self.password,port=self.port,user=self.user) as conn:
-            cursor = conn.cursor()
-            try:
+    def listen(self,threaded=False):
+        """ Functon to read database and creating of tasks queue. """
+        self.activeListen = True
+        def check():
+            with psycopg2.connect(dbname=self.dbname,host=self.host,password = self.password,port=self.port,user=self.user) as conn:
+                cursor = conn.cursor()
                 while self.activeListen:
                     cursor.execute('''with next_task as (
                                         select id,task.adress,task.theme,task.message from task
@@ -101,15 +120,27 @@ class worker():
                     conn.commit()
                     self.execute(cursor.fetchall())
                     time.sleep(4)
+
+        if threaded:
+            threading.Thread(target=check,daemon=True).start()
+        else:
+            try:
+                check()
             except KeyboardInterrupt:
-                self._logger.info('Closing...')
-                
+                self._logger.info('Stoping...')
+
+    def stop(self):
+        """ Stop reading database """
+
+        self.activeListen = False
 
     def execute(self,task):
+        """Function to execute tasks."""
+
         if task:
             task = task[0]
-            self._logger.info('Send {}:{} to {};'.format(task[2],task[1],task[3]))
-            with psycopg2.connect(dbname=self.dbname,host=self.host,password = self.password,port=self.port,user=self.user) as conn:
+            self._logger.info('Send {}:{} to {}'.format(task[2],task[1],task[3]))
+            with psycopg2.connect(dbname=self.dbname, host=self.host, password = self.password, port=self.port, user=self.user) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''update task
                                     set
@@ -118,9 +149,3 @@ class worker():
 
         else:
             time.sleep(5)
-
-if __name__ == '__main__':
-    tasks = tasker(dbname='TaskDB',host='localhost',password = 'passwd',port='5433',user='postgres')
-    tasks.init()
-    name = worker(dbname='TaskDB',host='localhost',password = 'passwd',port='5433',user='postgres')
-    name.listen()
