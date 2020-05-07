@@ -9,7 +9,7 @@ from random import randint
 MATCH = r'^.*[\\\/](.*)$' #regex to validate optional path
 paths = []
 
-def threadingSearch(name,path):
+def threadingSearch(name,path,threads):
     '''recursive function to search for a given file for a given path 
     
 
@@ -25,9 +25,9 @@ def threadingSearch(name,path):
                 if element.name == name:
                     paths.append(element.path)
             else:
-                while threading.active_count() > 500:
+                while threading.active_count() > int(threads):
                     time.sleep(0.5)
-                thread = threading.Thread(target=threadingSearch,args=(name,element.path),daemon=True)
+                thread = threading.Thread(target=threadingSearch,args=(name,element.path,threads),daemon=True)
                 thread.start()
 
     except PermissionError:
@@ -36,9 +36,10 @@ def threadingSearch(name,path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument ('-s', '--start', default='C:\\')
+    parser.add_argument ('-t', '--threads', default='500')
     args = parser.parse_args(sys.argv[2:])
     if re.match(MATCH,args.start):
-        t = threading.Thread(target=threadingSearch,args=(sys.argv[1],args.start))
+        t = threading.Thread(target=threadingSearch,args=(sys.argv[1],args.start,args.threads))
         t.start()
         while threading.active_count() > 1:
             time.sleep(2)
